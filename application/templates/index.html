@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vyhodnocování terčů</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #282c34;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #444;
+            border-radius: 5px;
+            margin-top: 40px;
+        }
+
+        .form-wrapper {
+            margin-bottom: 20px;
+        }
+
+        .form-wrapper input[type="file"] {
+            display: none;
+        }
+
+        .form-wrapper label, input[type="submit"], input[type="button"] {
+            background-color: gray;
+            color: #fff;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            border: none;
+            font-size: 16px;
+        }
+
+        .form-wrapper label:hover, input[type="button"]:hover {
+            background-color: #0056b3;
+        }
+
+        .progress-wrapper {
+            margin-bottom: 20px;
+        }
+
+        .result-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .result-wrapper h3 {
+            margin-top: 0;
+        }
+
+        .result-image {
+            max-width: 400px;
+            max-height: 400px;
+            margin: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .table-wrapper {
+            margin-top: 40px;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .table-wrapper table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ccc;
+        }
+
+        .table-wrapper th,
+        .table-wrapper td {
+            padding: 8px;
+            text-align: center;
+            border-bottom: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+        }
+
+        .table-wrapper th {
+            background-color: gray;
+            color: #fff;
+        }
+
+        .restart-button {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Vyhodnocování terčů</h1>
+
+        <div class="form-wrapper">
+            <form action="/process" method="POST" enctype="multipart/form-data">
+                <input type="file" id="image-upload" name="image" accept="image/*" required>
+                <br>
+                <label for="image-upload">Načíst fotografii</label>
+                <br>
+                <br>
+                <input type="submit" value="Zpracovat fotografii">
+            </form>
+        </div>
+
+        <div class="progress-wrapper" id="progress" style="display:none">
+            <progress id="progress-bar" max="100"></progress>
+            <br>
+            <span id="progress-text"></span>
+            <br>
+            <span id="processing-text" style="display:none">Zpracovávám fotografii...</span>
+        </div>
+
+        <div class="result-wrapper" id="result" style="display:none">
+            <!-- <h3>Obr vysledek:</h3> -->
+            <img id="processed-image" class="result-image" src="{{ url_for('result', filename=image_filename) }}" alt="Processed Image">
+            <div class="table-wrapper" id="table-wrapper">
+                <table class="result-table" id="result-table">
+                    <tr>
+                        <th>Name</th>
+                        <th>Value</th>
+                    </tr>
+                    {% for item in tableData %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.value }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+
+        <div class="restart-button">
+            <input type="button" value="Restartovat" onclick="window.location.reload();">
+        </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        $('form').submit(function(event) {
+            event.preventDefault();
+            var form_data = new FormData($('form')[0]);
+            $.ajax({
+                xhr: function() {
+                    var xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener("progress", function(evt) {
+                        if (evt.lengthComputable) {
+                            var percentComplete = evt.loaded / evt.total;
+                            $('#progress-bar').attr('value', percentComplete * 100);
+                            $('#progress-text').text(Math.round(percentComplete * 100) + '%');
+                        }
+                    }, false);
+                    return xhr;
+                },
+                type: 'POST',
+                url: '/process',
+                data: form_data,
+                processData: false,
+                contentType: false,
+                beforeSend: function() {
+                    $('#progress').show();
+                    $('#processing-text').show();
+                    $('#result').hide();
+                },
+                success: function(response) {
+                    $('#progress').hide();
+                    $('#processing-text').hide();
+                    $('#result').show();
+                    $('#processed-image').attr('src', 'data:image/png;base64,' + response.encoded_image);
+
+                    // Process and populate the dynamic table
+                    var tableData = response.tableData;
+
+                    var table = $('#result-table');
+                    table.empty();
+                    table.append('<tr><th></th><th>Hodnocení</th></tr>');
+                    for (var i = 0; i < tableData.length; i++) {
+                        var row = '<tr><td>' + tableData[i].name + '</td><td>' + tableData[i].value + '</td></tr>';
+                        table.append(row);
+                    }
+                }
+            });
+        });
+    });
+    </script>
+
+    </div>
+</body>
+</html>
+
